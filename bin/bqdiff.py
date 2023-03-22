@@ -89,7 +89,7 @@ class DiffQuery:
 
     column_preprocessors = {
         None: default_preprocessor,
-        "RECORD": lambda s: "to_json_string({s})",
+        "RECORD": lambda s: f"to_json_string({s})",
     }
 
     def __init__(self, left, right, join_keys, output=None, where=None, includes=None, excludes=None, check_types=True):
@@ -139,7 +139,7 @@ class DiffQuery:
 
     def _build_diff_query(self):
         field_comparisons = [
-            "if(" + self._null_aware_equality(f"a.{field}", f"b.f{field}") + f", [], ['{field}'])"
+            "if(" + self._null_aware_equality(f"a.{field}", f"b.{field}") + f", [], ['{field}'])"
             for field in self.fields
         ]
         if len(field_comparisons) == 0:
