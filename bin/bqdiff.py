@@ -87,12 +87,6 @@ class DiffQuery:
 
     default_preprocessor = lambda x: x
 
-    column_preprocessors = {
-        None: default_preprocessor,
-        "RECORD": lambda s: f"to_json_string({s})",
-        "REPEATED": lambda s: f"to_json_string({s})",
-    }
-
     def __init__(self, left, right, join_keys, output=None, where=None, includes=None, excludes=None, check_types=True):
         logger.info(f"Comparing schemas for {left.full_table_id} and {right.full_table_id}...")
         self.assert_schemas_match(
@@ -122,8 +116,8 @@ class DiffQuery:
         return f"farm_fingerprint(concat(\n{coalesce}\n))"
 
     @classmethod
-    def _null_aware_equality(cls, left, right, column_type=None):
-        fn = cls.column_preprocessors.get(column_type, cls.default_preprocessor)
+    def _null_aware_equality(cls, left, right, schema_field):
+        fn = cls._get_column_preprocessor(schema_field)
         return f"( ({left} is null and {right} is null) or ({fn(left)} = {fn(right)}) )"
 
 
@@ -142,12 +136,20 @@ class DiffQuery:
     @staticmethod
     def _get_field_types(table, includes=None, excludes=None):
         fields = DiffQuery._get_fields(table, includes=includes, excludes=excludes)
-        return {field.name: field.field_type for field in table.schema if field.name in fields}
+        return {field.name: field for field in table.schema if field.name in fields}
+
+    @classmethod
+    def _get_column_preprocessor(cls, field):
+        if field.mode == "REPEATED":
+            return lambda s: f"to_json_string({s})"
+        if field.field_type == "STRUCT":
+            return lambda s: f"to_json_string({s})"
+        return cls.default_preprocessor
 
     def _build_diff_query(self):
         field_comparisons = [
-            "if(" + self._null_aware_equality(f"a.{field}", f"b.{field}", field_type) + f", [], ['{field}'])"
-            for field, field_type in self.field_types.items()
+            "if(" + self._null_aware_equality(f"a.{field}", f"b.{field}", field_def) + f", [], ['{field}'])"
+            for field, field_def in self.field_types.items()
         ]
         if len(field_comparisons) == 0:
             field_comparisons = ['[]']
