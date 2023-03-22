@@ -90,6 +90,7 @@ class DiffQuery:
     column_preprocessors = {
         None: default_preprocessor,
         "RECORD": lambda s: f"to_json_string({s})",
+        "REPEATED": lambda s: f"to_json_string({s})",
     }
 
     def __init__(self, left, right, join_keys, output=None, where=None, includes=None, excludes=None, check_types=True):
@@ -109,6 +110,7 @@ class DiffQuery:
         self.join_keys = set(join_keys)
         self.where = f'where {where}' if where else ''
         self.fields = fields - self.join_keys
+        self.field_types = self._get_field_types(left, includes=self.fields)
         self.select_keys = ','.join(self.join_keys)
 
     @staticmethod
@@ -137,10 +139,15 @@ class DiffQuery:
             includes = keys - excludes
         return includes
 
+    @staticmethod
+    def _get_field_types(table, includes=None, excludes=None):
+        fields = DiffQuery._get_fields(table, includes=includes, excludes=excludes)
+        return {field.name: field.field_type for field in table.schema if field.name in fields}
+
     def _build_diff_query(self):
         field_comparisons = [
-            "if(" + self._null_aware_equality(f"a.{field}", f"b.{field}") + f", [], ['{field}'])"
-            for field in self.fields
+            "if(" + self._null_aware_equality(f"a.{field}", f"b.{field}", field_type) + f", [], ['{field}'])"
+            for field, field_type in self.field_types.items()
         ]
         if len(field_comparisons) == 0:
             field_comparisons = ['[]']
