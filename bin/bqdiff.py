@@ -14,6 +14,7 @@ import os
 import logging
 import sys
 import argparse
+import time
 
 import pandas as pd
 pd.set_option('display.max_rows', None)
@@ -262,7 +263,7 @@ class DiffQuery:
             from (
                 select
                     cast(field as string) as key,
-                    count(*) as num_records
+                    count(*) / 2 as num_records
                 from output
                 join unnest(differing_fields) as field
                 group by field
@@ -366,6 +367,7 @@ def main(client, args):
 
         job = differ.run(client, job_id_prefix="diff_report_" + os.getenv("USER", "") + "_")
         logger.info(f"Running differ job: {job.job_id}")
+        time.sleep(1)
         result = differ.summarize(client, job_id_prefix="diff_report_summary_" + os.getenv("USER", "") + "_")
 
         exit_code = 0
