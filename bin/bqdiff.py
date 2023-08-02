@@ -210,7 +210,7 @@ a as (
     union all
 
     select
-        diffs.* replace (,
+        diffs.* replace (
             -- Only report a difference if the row is in both tables
             if(_in_left and _in_right, differing_fields, []) as differing_fields
         ),
@@ -398,6 +398,7 @@ def main(client, args, logger=logging):
 
         job = differ.run(client, job_id_prefix="diff_report_" + os.getenv("USER", "") + "_")
         logger.info(f"Running differ job: {job.job_id}")
+        job.result()
         time.sleep(1)
         result = differ.summarize(client, job_id_prefix="diff_report_summary_" + os.getenv("USER", "") + "_")
 
